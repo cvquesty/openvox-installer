@@ -44,67 +44,52 @@
 
 ### Installation Modes
 
-1. **Standalone Agent** - Agent only, connects to existing server
-2. **Full Server** - Agent + Server + PuppetDB
-3. **Complete Stack** - Full Server + r10k + OpenBolt + OpenVox-GUI
+| CLI Mode | Components |
+|----------|------------|
+| `agent` | Agent only — connects to an existing server |
+| `server` | Agent + Server + PuppetDB + r10k |
+| `complete` | All of the above + OpenBolt + OpenVox-GUI |
 
 ### Configuration File Structure
 
+The installer uses a **flat `key = value`** format (no INI sections).
+See `etc/openvox.conf.example` for the authoritative reference.
+
 ```ini
-[general]
-install_mode = full_server  ; standalone_agent | full_server | complete_stack
-environment = production
-offline_mode = false
+# General
+install_mode = complete
+non_interactive = false
 
-[network]
+# Network
 server_hostname = openvox.example.com
-server_ip = 192.168.1.10
-agent_server = openvox.example.com
-dns_servers = 8.8.8.8,8.8.4.4
-ntp_server = pool.ntp.org
 
-[openvox]
-agent_version = 8.25.0
-server_version = 8.12.1
+# r10k
+r10k_remote = git@github.com:org/control-repo.git
 
-[puppetdb]
-database = internal  ; internal | external
-db_host = localhost
-db_port = 5432
-db_name = puppetdb
-db_user = puppetdb
-db_password = changeme
+# PuppetDB
+puppetdb_database = internal
+puppetdb_password = changeme
+puppetdb_db_host = localhost
+puppetdb_db_port = 5432
+puppetdb_db_name = puppetdb
+puppetdb_db_user = puppetdb
 
-[r10k]
-remote = git@github.com:org/control-repo.git
-private_key = /etc/puppetlabs/puppetserver/ssh/id_rsa
-r10k_version = 5.0.2
-
-[openbolt]
-install = true
-openbolt_version = 5.3.0
-
-[openvox_gui]
-install = true
+# OpenVox-GUI
 gui_port = 4567
-gui_host = 0.0.0.0
-gui_ssl = true
-gui_cert = /etc/puppetlabs/puppet/ssl/certs/openvox.example.com.pem
-gui_key = /etc/puppetlabs/puppet/ssl/private_keys/openvox.example.com.pem
 
-[security]
-firewall = true
-selinux = permissive  ; enforcing | permissive | disabled (RHEL)
-certname = auto  ; auto uses hostname
-autosign = false
+# Agent
+certname = auto
+runinterval = 30m
 
-[backup]
-enable = true
-backup_dir = /var/backups/openvox
+# Server
+jvm_memory = 2g
 
-[logging]
-log_level = notice  ; debug | info | notice | warning | err
-syslog = false
+# Security
+firewall = false
+selinux = permissive
+
+# Logging
+log_level = info
 ```
 
 ---
@@ -198,32 +183,19 @@ syslog = false
 ```
 openvox-installer/
 ├── bin/
-│   └── openvox-installer          # Main installer script
+│   └── openvox-installer       # Main installer script (entry point)
 ├── etc/
-│   └── openvox.conf.example       # Example configuration
+│   └── openvox.conf.example    # Example configuration file
 ├── lib/
-│   ├── functions.sh               # Common functions
-│   ├── repo.sh                    # Repository setup
-│   ├── agent.sh                   # Agent installation
-│   ├── server.sh                  # Server installation
-│   ├── puppetdb.sh                # PuppetDB installation
-│   ├── r10k.sh                    # r10k installation
-│   ├── openbolt.sh                # OpenBolt installation
-│   └── gui.sh                     # OpenVox-GUI installation
-├── scripts/
-│   ├── preflight.sh               # Pre-installation checks
-│   ├── postinstall.sh             # Post-installation tasks
-│   └── healthcheck.sh            # Health verification
-├── templates/
-│   ├── puppet.conf.agent.template
-│   ├── puppet.conf.server.template
-│   ├── r10k.yaml.template
-│   ├── bolt.yaml.template
-│   └── openvox-gui.ini.template
-├── CHANGELOG.md
-├── README.md
-├── LICENSE
-└── CONTRIBUTING.md
+│   ├── functions.sh            # Common functions (logging, OS detection, repos)
+│   ├── agent.sh                # OpenVox Agent installation
+│   ├── server.sh               # OpenVox Server installation
+│   ├── puppetdb.sh             # PuppetDB installation
+│   ├── r10k.sh                 # r10k installation (server only)
+│   ├── openbolt.sh             # OpenBolt installation
+│   └── gui.sh                  # OpenVox-GUI installation
+├── PROJECT_PLAN.md
+└── README.md
 ```
 
 ---
@@ -299,31 +271,37 @@ START
 ## Command Line Interface
 
 ```bash
-# Install with default options (requires root)
-sudo ./openvox-installer
+# Interactive install (prompts for required values)
+sudo ./bin/openvox-installer
 
 # Specify custom config
-sudo ./openvox-installer -c /path/to/custom.conf
+sudo ./bin/openvox-installer -c /path/to/openvox.conf
 
-# Install specific components only
-sudo ./openvox-installer --agent-only
-sudo ./openvox-installer --server-only
-sudo ./openvox-installer --gui-only
+# Install specific components
+sudo ./bin/openvox-installer --agent
+sudo ./bin/openvox-installer --server
+sudo ./bin/openvox-installer --gui
+sudo ./bin/openvox-installer --openbolt
+
+# Installation modes
+sudo ./bin/openvox-installer --mode agent
+sudo ./bin/openvox-installer --mode server
+sudo ./bin/openvox-installer --mode complete
 
 # Dry-run mode (show what would happen)
-sudo ./openvox-installer --dry-run
+sudo ./bin/openvox-installer --dry-run
 
 # Skip preflight checks
-sudo ./openvox-installer --skip-preflight
+sudo ./bin/openvox-installer --skip-preflight
 
 # Force reinstallation
-sudo ./openvox-installer --force
+sudo ./bin/openvox-installer --force
 
-# Unattended mode (no prompts)
-sudo ./openvox-installer --unattended
+# Non-interactive mode (no prompts)
+sudo ./bin/openvox-installer --non-interactive
 
 # Show help
-./openvox-installer --help
+./bin/openvox-installer --help
 ```
 
 ---
@@ -391,14 +369,17 @@ sudo ./openvox-installer --unattended
 
 ---
 
-## Documentation Requirements
+## Documentation
 
-- README.md - Overview and quick start
-- INSTALL.md - Detailed installation guide
-- CONFIG.md - Configuration file reference
-- UPGRADE.md - Upgrade instructions
-- TROUBLESHOOTING.md - Common issues and solutions
-- CONTRIBUTING.md - How to contribute
+Current documentation:
+- `README.md` — Overview, quick start, full option reference, troubleshooting
+- `PROJECT_PLAN.md` — This file; project specs, roadmap, and test plan
+- `etc/openvox.conf.example` — Annotated configuration file reference
+
+Future documentation (Phase 2):
+- `CHANGELOG.md` — Release notes
+- `LICENSE` — Apache 2.0 license file
+- `CONTRIBUTING.md` — How to contribute
 
 ---
 

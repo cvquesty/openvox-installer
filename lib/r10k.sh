@@ -81,10 +81,9 @@ configure_r10k() {
     local r10k_dir="/etc/puppetlabs/r10k"
     mkdir -p "$r10k_dir"
     
-    # Determine basedir based on Puppet version
-    # PE uses different paths than FOSS
+    # Determine basedir — use the standard FOSS path unless a legacy path exists
     local basedir="/etc/puppetlabs/code/environments"
-    if [[ -d "/etc/puppet/environments" ]]; then
+    if [[ -d "/etc/puppet/environments" && ! -d "/etc/puppetlabs/code/environments" ]]; then
         basedir="/etc/puppet/environments"
     fi
     
