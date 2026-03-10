@@ -276,8 +276,8 @@ Apache License 2.0 - See LICENSE file
 
 | Contribution Type | Percentage |
 |-------------------|------------|
-| AI Assisted       | 100%       |
-| Human Written     | 0%         |
+| AI Assisted       | %        |
+| Human Written     | %        |
 
 **AI Models Used:**
 - OpenClaw (primary agent - running on Ollama with minimax-m2.5:cloud model)
